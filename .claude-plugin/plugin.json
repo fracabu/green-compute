@@ -1,0 +1,12 @@
+{
+  "name": "green-compute",
+  "version": "1.0.0",
+  "description": "Decides where each job should run (Claude, an open model on OpenRouter, Kaggle's free GPUs or your PC) and installs token-diet, kaggle-offload and or-switch.",
+  "author": { "name": "fracabu" },
+  "homepage": "https://github.com/fracabu/green-compute",
+  "repository": "https://github.com/fracabu/green-compute",
+  "license": "MIT",
+  "keywords": ["cost", "sustainability", "openrouter", "kaggle", "gpu", "models", "tokens"],
+  "dependencies": ["token-diet", "kaggle-offload", "or-switch"],
+  "network": { "hosts": ["openrouter.ai"] }
+}

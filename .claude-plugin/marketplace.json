@@ -1,0 +1,11 @@
+{
+  "name": "green-compute",
+  "owner": { "name": "fracabu", "url": "https://github.com/fracabu" },
+  "description": "Spend less compute for the same work: the right Claude model per phase, free Kaggle GPUs, and open models on OpenRouter.",
+  "plugins": [
+    { "name": "green-compute", "source": "./" },
+    { "name": "token-diet", "source": { "source": "github", "repo": "fracabu/token-diet" } },
+    { "name": "kaggle-offload", "source": { "source": "github", "repo": "fracabu/kaggle-offload" } },
+    { "name": "or-switch", "source": { "source": "github", "repo": "fracabu/or-switch" } }
+  ]
+}

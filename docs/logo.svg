@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240" width="240" height="240" role="img" aria-labelledby="t d">
+  <title id="t">green-compute</title>
+  <desc id="d">A leaf whose veins are circuit traces ending in four nodes: Claude, an open model, a free GPU and your PC.</desc>
+  <path d="M120 214 C58 178 40 112 64 58 C88 34 152 26 196 32 C204 86 190 160 120 214 Z" fill="#c6f432"/>
+  <g fill="none" stroke="#0c0d0b" stroke-width="7" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M120 214 L120 196 L176 60"/>
+    <path d="M150 124 L174 124 L174 112"/>
+    <path d="M136 158 L96 158 L96 140"/>
+    <path d="M162 92 L112 92 L100 80"/>
+  </g>
+  <g stroke="#0c0d0b" stroke-width="5">
+    <circle cx="176" cy="60" r="11" fill="#ff4fa3"><animate attributeName="r" values="11;14;11" dur="3.2s" begin="0s" repeatCount="indefinite"/></circle>
+    <circle cx="174" cy="108" r="11" fill="#fbbf24"><animate attributeName="r" values="11;14;11" dur="3.2s" begin="0.8s" repeatCount="indefinite"/></circle>
+    <circle cx="96" cy="136" r="11" fill="#2dd4ee"><animate attributeName="r" values="11;14;11" dur="3.2s" begin="1.6s" repeatCount="indefinite"/></circle>
+    <circle cx="98" cy="78" r="11" fill="#e9e7df"><animate attributeName="r" values="11;14;11" dur="3.2s" begin="2.4s" repeatCount="indefinite"/></circle>
+  </g>
+</svg>
