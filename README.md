@@ -79,7 +79,7 @@ Or only one piece: `/plugin install token-diet --marketplace fracabu/green-compu
 
 Then, for the parts you'll use:
 
-- **OpenRouter**: an API key from [openrouter.ai](https://openrouter.ai), in `OPENROUTER_API_KEY` (`setx OPENROUTER_API_KEY "sk-or-v1-..."` on Windows).
+- **OpenRouter**: an API key from [openrouter.ai](https://openrouter.ai), either in `OPENROUTER_API_KEY` (`setx OPENROUTER_API_KEY "sk-or-v1-..."` on Windows) or in a `.env` file in the plugin's folder (copy `.env.example`; it is git-ignored). Set a credit limit on the key.
 - **Kaggle**: `pip install kaggle`, a Kaggle account with a verified phone number and an API token: see [kaggle-offload](https://github.com/fracabu/kaggle-offload#quick-start).
 - **Plan usage in token-diet's monitor**: an optional status line, see [token-diet](https://github.com/fracabu/token-diet#optional-plan-usage-in-the-monitor).
 

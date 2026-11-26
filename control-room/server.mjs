@@ -2,13 +2,13 @@
 // Usage: node server.mjs [port]
 // Events come from the plugin's hooks module (POST /event) and are kept in <data dir>/events.jsonl.
 // It also reads, without writing: token-diet's plan usage and job grid, kaggle-offload's quota and runs,
-// the OpenRouter key's spending (when OPENROUTER_API_KEY is set), and this PC's CPU and memory.
+// the OpenRouter key's spending (key from OPENROUTER_API_KEY, the plugin's .env or a Windows user variable), and this PC's CPU and memory.
 import http from 'node:http';
 import fs from 'node:fs';
 import os from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { execSync } from 'node:child_process';
+import { openRouterKey } from '../scripts/env.mjs';
 import { DATA_DIR, EVENTS, DEFAULT_PORT, TOKEN_DIET_DIR, KAGGLE_DIR, PRICES, family, costOf } from './lib.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -132,11 +132,7 @@ function tokenDietGrid(lines) {
   return { title, phases, jobs: [...jobs].map(([name, cells]) => ({ name, cells })) };
 }
 
-let orKey = process.env.OPENROUTER_API_KEY || null;
-// An empty OPENROUTER_API_KEY means "no key" (the demo sets it so): only a missing one sends us to the registry.
-if (!orKey && !('OPENROUTER_API_KEY' in process.env) && process.platform === 'win32') {
-  try { const m = execSync('reg query HKCU\\Environment /v OPENROUTER_API_KEY', { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).match(/OPENROUTER_API_KEY\s+REG_\w+\s+(\S+)/); if (m) orKey = m[1]; } catch {}
-}
+const orKey = openRouterKey();
 async function pollCredit() {
   if (!orKey) return;
   try {

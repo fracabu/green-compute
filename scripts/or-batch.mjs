@@ -8,9 +8,9 @@
 // --reasoning: many recent models think before answering, and those tokens count against --max-tokens
 // and are billed. For simple tasks (translate, classify, extract) "none" or "low" is cheaper; some models
 // refuse "none". An empty answer is recorded as an error, so the next run retries it.
-// Needs OPENROUTER_API_KEY in the environment. On Windows a key stored with setx is also read from the registry.
+// Needs an OpenRouter key: OPENROUTER_API_KEY, the plugin's .env file, or (Windows) a setx user variable.
 import fs from 'node:fs';
-import { execSync } from 'node:child_process';
+import { openRouterKey } from './env.mjs';
 
 const args = process.argv.slice(2);
 const opt = (k, d) => { const i = args.indexOf('--' + k); return i >= 0 && args[i + 1] !== undefined ? args[i + 1] : d; };
@@ -30,19 +30,8 @@ if (!model || !input) {
   process.exit(1);
 }
 
-function apiKey() {
-  if (process.env.OPENROUTER_API_KEY) return process.env.OPENROUTER_API_KEY;
-  if (process.platform === 'win32') {
-    try {
-      const out = execSync('reg query HKCU\\Environment /v OPENROUTER_API_KEY', { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] });
-      const m = out.match(/OPENROUTER_API_KEY\s+REG_\w+\s+(\S+)/);
-      if (m) return m[1];
-    } catch {}
-  }
-  return null;
-}
-const key = apiKey();
-if (!key) { console.error('OPENROUTER_API_KEY is not set (setx OPENROUTER_API_KEY "sk-or-v1-..." on Windows, export elsewhere)'); process.exit(1); }
+const key = openRouterKey();
+if (!key) { console.error('No OpenRouter key: set OPENROUTER_API_KEY, or copy .env.example to .env in the plugin folder and fill it in'); process.exit(1); }
 
 const jobs = fs.readFileSync(input, 'utf8').split('\n').map(l => l.trim()).filter(Boolean).map((l, i) => {
   try { return JSON.parse(l); } catch { console.error(`line ${i + 1} of ${input} is not JSON: skipped`); return null; }
