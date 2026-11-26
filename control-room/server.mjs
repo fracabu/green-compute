@@ -9,7 +9,7 @@ import os from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { openRouterKey } from '../scripts/env.mjs';
-import { DATA_DIR, EVENTS, DEFAULT_PORT, TOKEN_DIET_DIR, KAGGLE_DIR, PRICES, family, costOf } from './lib.mjs';
+import { DATA_DIR, EVENTS, DEFAULT_PORT, TOKEN_DIET_DIR, KAGGLE_DIR, PRICES, family, costOf, readConfig } from './lib.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const PORT = Number(process.argv[2] || process.env.GREEN_COMPUTE_PORT || DEFAULT_PORT);
@@ -31,6 +31,9 @@ function fresh(title, t0) {
     session: { tokens: 0, cost: 0, turns: 0 },
     openrouter: { runs: 0, active: 0, tokensIn: 0, tokensOut: 0, cost: 0, last: null, switchedTo: null },
     kaggle: { active: 0, runs: 0, last: null },
+    estimate: null,      // the latest estimate.mjs verdict
+    actors: {},          // 's:<session>' or 'a:<agentId>' -> what it is doing now
+    feed: [],            // the latest actions, newest last
     log: [],
   };
 }
@@ -43,8 +46,27 @@ function logLine(ev) {
   if (S.log.length > 300) S.log.shift();
 }
 
+function actor(ev, t) {
+  const key = ev.agentId ? 'a:' + ev.agentId : 's:' + (ev.session || '?');
+  return S.actors[key] ??= { key, kind: ev.agentId ? 'agent' : 'session', agentId: ev.agentId || null, project: ev.project || '',
+    state: 'idle', action: null, actions: 0, family: null, since: t };
+}
+function feed(a, t, text, tool) {
+  const ag = a.agentId ? S.agents.find(x => x.id === a.agentId) : null;
+  S.feed.push({ t, who: ag ? ag.description : 'session' + (a.project ? ' · ' + a.project : ''), family: ag ? ag.family : a.family, kind: a.kind, text, tool });
+  if (S.feed.length > 40) S.feed.shift();
+}
+
 function apply(ev) {
   const t = Date.parse(ev.t) || Date.now();
+  if (ev.type === 'act' || ev.type === 'act-end' || ev.type === 'turn-start') {
+    const a = actor(ev, t);
+    if (ev.type === 'turn-start') { a.state = 'working'; a.action = { text: 'thinking…', t, tool: null }; if (ev.skill && S.skills[ev.skill]) S.skills[ev.skill].last = t; }
+    else if (ev.type === 'act') { a.state = 'working'; a.action = { text: ev.summary, t, tool: ev.tool }; a.actions++; feed(a, t, ev.summary, ev.tool);
+      if (ev.skill && S.skills[ev.skill]) S.skills[ev.skill].last = t; }
+    else if (a.action && a.action.text === ev.summary) { a.action.done = t; a.action.ok = ev.ok; }
+    return;
+  }
   if (ev.type === 'run') { S = fresh(ev.title, t); ext.planAtStart = ext.plan; ext.creditAtStart = ext.credit; logLine(ev); return; }
   logLine(ev);
   if (ev.type === 'skill') {
@@ -53,6 +75,7 @@ function apply(ev) {
     S.skills[k].count++; S.skills[k].last = t; S.current = k;
   } else if (ev.type === 'agent-start') {
     const f = family(ev.model);
+    Object.assign(actor(ev, t), { state: 'working', family: f, action: { text: 'starting…', t, tool: null } });
     S.agents.push({ id: ev.agentId, description: ev.description || ev.subagentType || 'agent', type: ev.subagentType, model: ev.model, family: f,
       skill: bare(ev.skill) || S.current, start: t, end: null, status: 'running', tokens: 0, cost: 0 });
     const m = modelRow(f); m.agents++; m.running++;
@@ -60,7 +83,9 @@ function apply(ev) {
   } else if (ev.type === 'agent-end') {
     const a = S.agents.find(x => x.id === ev.agentId);
     if (a && a.status === 'running') { a.status = ev.status || 'completed'; a.end = t; modelRow(a.family).running = Math.max(0, modelRow(a.family).running - 1); }
+    const ac = S.actors['a:' + ev.agentId]; if (ac) ac.state = 'done';
   } else if (ev.type === 'usage') {
+    if (!ev.agentId) { const ac = actor(ev, t); ac.state = 'idle'; ac.family = family(ev.usage?.[0]?.model); ac.action = { text: 'waiting for you', t, tool: null }; }
     const a = ev.agentId ? S.agents.find(x => x.id === ev.agentId) : null;
     for (const u of ev.usage || []) {
       const f = family(u.model);
@@ -80,6 +105,8 @@ function apply(ev) {
       if (ev.engine === 'openrouter' && ev.detail) { e.tokensIn += ev.detail.tokensIn || 0; e.tokensOut += ev.detail.tokensOut || 0; e.cost += ev.detail.cost || 0; } }
     const k = ev.engine === 'openrouter' ? 'where-to-run' : 'kaggle-offload';
     if (S.skills[k]) S.skills[k].last = t;
+  } else if (ev.type === 'estimate') {
+    S.estimate = { ...ev, t };
   } else if (ev.type === 'switch') {
     S.openrouter.switchedTo = ev.model === 'claude' ? null : ev.model;
     S.skills['or-switch'].count++; S.skills['or-switch'].last = t; S.current = 'or-switch';
@@ -149,7 +176,11 @@ function pollPc() {
   const now = os.cpus(); let idle = 0, total = 0;
   now.forEach((c, i) => { const p = prevCpu[i]?.times || c.times; for (const k in c.times) total += c.times[k] - p[k]; idle += c.times.idle - p.idle; });
   prevCpu = now;
-  ext.pc = { cpu: total ? Math.round((1 - idle / total) * 100) : 0, mem: Math.round((1 - os.freemem() / os.totalmem()) * 100), cores: now.length };
+  const cpu = total ? Math.round((1 - idle / total) * 100) : 0;
+  const cfg = readConfig();
+  const overSince = cpu >= cfg.cpuMaxPercent ? (ext.pc.overSince || Date.now()) : null;
+  ext.pc = { cpu, mem: Math.round((1 - os.freemem() / os.totalmem()) * 100), cores: now.length, overSince,
+    limit: cfg.cpuMaxPercent, limitMinutes: cfg.cpuMaxMinutes };
 }
 
 // ---------------- snapshot for the page ----------------
@@ -164,10 +195,12 @@ function snapshot() {
   const measured = claudeCost + S.openrouter.cost;
   return {
     now: Date.now(), run: S.run, current: S.current, skills: S.skills,
-    agents: S.agents.slice(-40), models: S.models, session: S.session,
+    agents: S.agents.slice(-40).map(a => ({ ...a, action: S.actors['a:' + a.id]?.action || null })),
+    sessions: Object.values(S.actors).filter(a => a.kind === 'session'),
+    feed: S.feed.slice(-8), models: S.models, session: S.session,
     openrouter: { ...S.openrouter, credit: ext.credit, creditAtStart: ext.creditAtStart, hasKey: !!orKey },
     kaggle: { ...S.kaggle, quota: ext.quota, running: ext.kaggleRunning, lastRun: ext.kaggleLast },
-    pc: ext.pc, plan: ext.plan, planAtStart: ext.planAtStart, jobs: ext.jobs,
+    pc: ext.pc, estimate: S.estimate, plan: ext.plan, planAtStart: ext.planAtStart, jobs: ext.jobs,
     totals: { claudeTokens, claudeCost, measured, allOpus, saved: allOpus > 0 ? 1 - measured / allOpus : 0 },
   };
 }

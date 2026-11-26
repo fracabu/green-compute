@@ -1,9 +1,10 @@
 import type { EngineInterface, Register } from 'claude-code'
 
-// Feeds the green-compute control room (control-room/server.mjs) with what happens in this session:
-// which skill is working, the sub-agents it starts and on which model, the tokens of every turn,
-// and the batches sent to OpenRouter or Kaggle. Nothing is recorded until one of green-compute's
-// skills runs in this session; then the control room is started (and opened) if it isn't running.
+// Feeds the green-compute control room (control-room/server.mjs) with what happens, live: which skill
+// is working, the sub-agents it starts and on which model, every action of the session and of each
+// agent (the file it reads, the command it runs...), the tokens of every turn, and the batches sent to
+// OpenRouter or Kaggle. A session reports once one of green-compute's skills runs in it (which also
+// starts and opens the room), or as soon as it finds the room already open.
 
 const PORT = 4790
 const BASE = `http://127.0.0.1:${PORT}`
@@ -12,16 +13,50 @@ const bare = (s: string) => s.split(':').pop() ?? s
 
 let active = false
 let skill: string | null = null
+let sessionId: string | null = null
+let project: string | null = null
+let lastCheck = 0
 
 async function post($: EngineInterface, ev: Record<string, unknown>) {
   try {
+    sessionId ??= await $.session.id()
+    if (project === null) {
+      const root = await $.session.root().catch(() => '')
+      project = root.split(/[\\/]/).filter(Boolean).pop() ?? ''
+    }
     await $.http.fetch(`${BASE}/event`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ t: new Date().toISOString(), session: await $.session.id(), ...ev }),
+      body: JSON.stringify({ t: new Date().toISOString(), session: sessionId, project, ...ev }),
     })
   } catch {
     // the control room is closed: nothing to show it to
+  }
+}
+
+// A session that hasn't run our skills still reports while the room is open (checked at most every 20 s).
+async function activateIfRoomOpen($: EngineInterface) {
+  if (active || Date.now() - lastCheck < 20000) return
+  lastCheck = Date.now()
+  if (await isUp($)) active = true
+}
+
+// One short line saying what a tool call does: "Read server.mjs", "Bash npm test", "Grep fetch".
+function summary(e: Record<string, unknown>): string {
+  const s = (k: string) => (typeof e[k] === 'string' ? (e[k] as string) : '')
+  const file = (p: string) => p.split(/[\\/]/).pop() ?? p
+  const cut = (t: string, n = 70) => (t.length > n ? t.slice(0, n - 1) + '…' : t).replace(/\s+/g, ' ')
+  const tool = s('tool')
+  switch (tool) {
+    case 'Read': case 'Write': case 'Edit': case 'NotebookEdit': return `${tool} ${file(s('file_path') || s('notebook_path'))}`
+    case 'Bash': case 'PowerShell': return `${tool === 'Bash' ? '$' : 'PS'} ${cut(s('command'))}`
+    case 'Grep': return `Grep "${cut(s('pattern'), 40)}"`
+    case 'Glob': return `Glob ${cut(s('pattern'), 50)}`
+    case 'WebSearch': return `Search "${cut(s('query'), 50)}"`
+    case 'WebFetch': return `Fetch ${cut(s('url'), 60)}`
+    case 'Agent': return `Agent: ${cut(s('description'), 50)}`
+    case 'Skill': return `Skill ${s('skill')}`
+    default: return tool.startsWith('mcp__') ? tool.split('__').slice(1).join(' · ') : tool
   }
 }
 
@@ -108,6 +143,23 @@ export const register: Register = (on) => {
     }
     return result
   })
+
+  on('turn.start', async ($, e, next) => {
+    await activateIfRoomOpen($)
+    if (active) void post($, { type: 'turn-start', agentId: e.agentId ?? null, skill })
+    return next(e)
+  }).catch(($, e, next) => next(e))
+
+  // every action, of the session and of each agent, as it starts and as it ends
+  on('tool.call', async ($, e, next) => {
+    if (!active) return next(e)
+    const what = summary(e as unknown as Record<string, unknown>)
+    void post($, { type: 'act', agentId: e.agentId ?? null, tool: e.tool, summary: what, skill })
+    const ran = await next(e)
+    const failed = ran.deny !== undefined || ran.isError === true
+    void post($, { type: 'act-end', agentId: e.agentId ?? null, tool: e.tool, summary: what, ok: !failed })
+    return ran
+  }).catch(($, e, next) => next(e))
 
   on('tool.call', { tool: ['Bash', 'PowerShell'] }, async ($, e, next) => {
     const eng = active ? engineOf(e.command) : null

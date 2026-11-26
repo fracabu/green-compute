@@ -1,5 +1,6 @@
 // Shared bits for the green-compute control room: data dir, port, prices, model families.
 import os from 'node:os';
+import { readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 
 export const DATA_DIR = process.env.GREEN_COMPUTE_HOME
@@ -12,6 +13,15 @@ export const DEFAULT_PORT = 4790;
 // Where the other tools keep their data (each can be moved with its own variable).
 export const TOKEN_DIET_DIR = process.env.TOKEN_DIET_HOME ? resolve(process.env.TOKEN_DIET_HOME) : join(os.homedir(), '.token-diet');
 export const KAGGLE_DIR = process.env.KAGGLE_OFFLOAD_HOME ? resolve(process.env.KAGGLE_OFFLOAD_HOME) : join(os.homedir(), '.kaggle-offload');
+
+// The CPU rule: a job that would keep this PC's CPU at or above cpuMaxPercent for cpuMaxMinutes or more
+// goes to Kaggle instead (GPU for model work, CPU-only sessions for the rest). Change it in
+// <data dir>/config.json, e.g. {"cpuMaxPercent": 60, "cpuMaxMinutes": 10}.
+export const CONFIG_FILE = join(DATA_DIR, 'config.json');
+export const CONFIG_DEFAULTS = { cpuMaxPercent: 50, cpuMaxMinutes: 5 };
+export function readConfig() {
+  try { return { ...CONFIG_DEFAULTS, ...JSON.parse(readFileSync(CONFIG_FILE, 'utf8')) }; } catch { return { ...CONFIG_DEFAULTS }; }
+}
 
 // Claude API prices per million tokens [input, output] (checked 26/11/2026).
 // Cache reads cost 0.1x input, cache writes 1.25x input.

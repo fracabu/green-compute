@@ -47,7 +47,7 @@ flowchart TD
     I --> J[Claude checks a sample]
 ```
 
-Before any bulk run on an open model, the skill runs a **pilot**: the same 5-10 items on the open model and on Claude, compared side by side. It only goes on if quality holds, and a sample of the batch is checked on Claude afterwards.
+Before any job that computes on your PC, the skill **estimates** it (by calculation, or by timing a few items) and sends it straight to Kaggle when it would hold the CPU above 50% for 5 minutes or more, or when Kaggle would finish in less than half the time: faster, and the PC stays free. Before any bulk run on an open model, the skill runs a **pilot**: the same 5-10 items on the open model and on Claude, compared side by side. It only goes on if quality holds, and a sample of the batch is checked on Claude afterwards.
 
 ## The control room
 
@@ -89,6 +89,7 @@ Just ask Claude: *"where should this run?"*, *"can DeepSeek do this part?"*, *"t
 
 | Command | What it does |
 |---|---|
+| `node scripts/estimate.mjs --pilot "<command on 2 items>" --items-pilot 2 --items-total 120` | estimates a job before it runs (also `--gflop`, or `--params-b` with `--tokens`) and applies the CPU and time rules: Kaggle when the job would hold the CPU above 50% for 5+ minutes, or Kaggle would finish in less than half the time; limits in `~/.green-compute/config.json` |
 | `node scripts/or-models.mjs` | newest Chinese open models with tool calling and their live prices, next to Claude's |
 | `node scripts/or-models.mjs --group free` | the same for free models (`gemini`, `others`, `all` too; `--json` for scripts) |
 | `node scripts/or-batch.mjs --model <id> --in jobs.jsonl --out results.jsonl --system "<rules>" --reasoning none` | runs `{"id", "prompt"}` lines on an OpenRouter model, 4 at a time, retries on rate limits, resumes a stopped run, prints the cost OpenRouter reports. `--reasoning none` or `low` for simple tasks |

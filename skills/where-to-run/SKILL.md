@@ -46,11 +46,28 @@ use) or this PC only. Never OpenRouter or Kaggle. Ask if unsure; don't guess.
 Reaches clients, the public, money or production → **Claude**, with the verification phase on a
 strong model (token-diet). Caught by a later check, or cheap to redo → an open model may do it.
 
-### 3. Does it need a GPU model?
+### 3. Will it load this PC? Estimate first, then decide
 
-Audio, images, video, fine-tuning, or an open-weight model you want to run yourself → **kaggle-offload**
-(it decides between this PC, Kaggle CPU and Kaggle GPU, and batches). It also frees the PC: a job that
-would hold the CPU for more than a few minutes is a good reason to offload even when it would run here.
+Any job that computes locally (a model, a conversion, a long script) is **estimated before it runs**:
+
+- size known → `GC/estimate.mjs --params-b <B> --tokens <N>` (transformer inference) or `--gflop <G>`;
+- size unknown → a pilot on a few items: `GC/estimate.mjs --pilot "<the real command on 1-5 items>" --items-pilot <n> --items-total <N>`.
+  Add `--cpu-only` when the job can't use a GPU, and `--label "<what>"` for the control room.
+
+It applies two rules, and either one sends the job to Kaggle:
+
+- **CPU**: the job would keep the CPU at or above the limit (default 50%) for the limit's minutes or more (default 5);
+- **time**: the job is longer than those minutes, and on Kaggle, with about 3 minutes of setup, it would take less than half.
+
+When it answers `KAGGLE-GPU` or `KAGGLE-CPU` (exit code 10), **go there directly, without asking**: hand
+the job to **kaggle-offload** (GPU for model work; a CPU-only session, which uses no quota, for the rest).
+The PC stays free and the job finishes sooner. Tell the user in one line, with the two times. Two
+exceptions stop you: data that may not leave the PC (step 1), and Kaggle's GPU quota running out
+(kaggle-offload says so). When it answers `PC`, run it here.
+
+The limits are the user's: `~/.green-compute/config.json`, e.g. `{"cpuMaxPercent": 60, "cpuMaxMinutes": 10}`.
+Times are rough (GPU ones most of all): trust the verdict when the gap is large, and say "about".
+While a job runs, the control room also flags the PC when the CPU stays above the limit for a minute.
 
 ### 4. Is it bulk text work with clear rules?
 
