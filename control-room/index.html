@@ -187,20 +187,20 @@ const SK = [
   { k:'or-switch', label:'or-switch', sub:'/or · /claude', y:308 },
 ];
 const EN = [
-  { k:'haiku', label:'haiku', y:30, c:'--haiku' }, { k:'sonnet', label:'sonnet', y:72, c:'--sonnet' },
-  { k:'opus', label:'opus', y:114, c:'--opus' }, { k:'fable', label:'fable', y:156, c:'--fable' },
-  { k:'openrouter', label:'OpenRouter', y:210, c:'--or' }, { k:'kaggle', label:'Kaggle GPU', y:262, c:'--kaggle' },
-  { k:'pc', label:'this PC', y:314, c:'--pc' },
+  { k:'haiku', label:'haiku', y:32, c:'--haiku' }, { k:'sonnet', label:'sonnet', y:84, c:'--sonnet' },
+  { k:'opus', label:'opus · high', y:136, c:'--opus' },
+  { k:'openrouter', label:'OpenRouter', y:204, c:'--or' }, { k:'kaggle', label:'Kaggle GPU', y:258, c:'--kaggle' },
+  { k:'pc', label:'this PC', y:312, c:'--pc' },
 ];
 const EDGES = [
   ['where-to-run','haiku'],['where-to-run','sonnet'],['where-to-run','opus'],['where-to-run','openrouter'],['where-to-run','kaggle'],['where-to-run','pc'],
-  ['token-diet','haiku'],['token-diet','sonnet'],['token-diet','opus'],['token-diet','fable'],
+  ['token-diet','haiku'],['token-diet','sonnet'],['token-diet','opus'],
   ['kaggle-offload','kaggle'],['kaggle-offload','pc'],['or-switch','openrouter'],
 ];
 const SX = 14, SW = 190, EX = 400, EW = 226, NH = 44;
 function buildFlow(){
   const sy = k => SK.find(s => s.k === k).y + NH/2, ey = k => EN.find(e => e.k === k).y + NH/2;
-  let h = `<rect class="grp" x="${EX-8}" y="22" width="${EW+16}" height="186" rx="4"/><text x="${EX}" y="16" fill="var(--muted)" font-size="10">CLAUDE</text>`;
+  let h = `<rect class="grp" x="${EX-8}" y="24" width="${EW+16}" height="164" rx="4"/><text x="${EX}" y="16" fill="var(--muted)" font-size="10">CLAUDE</text>`;
   h += `<path class="edge" id="e-green" d="M${SX+30} ${28+NH} L${SX+30} 98"/>`;
   for (const [a,b] of EDGES) { const y1 = sy(a), y2 = ey(b), mx = (SX+SW+EX)/2; h += `<path class="edge" id="e-${a}-${b}" style="--c:var(${EN.find(e=>e.k===b).c})" d="M${SX+SW} ${y1} C${mx} ${y1}, ${mx} ${y2}, ${EX} ${y2}"/>`; }
   for (const s of SK) h += `<g class="node" id="s-${s.k}"><rect class="halo" x="${SX-3}" y="${s.y-3}" width="${SW+6}" height="${NH+6}" rx="6" fill="none" stroke="var(--acid)" stroke-opacity=".25" stroke-width="5"/><rect x="${SX}" y="${s.y}" width="${SW}" height="${NH}" rx="4"/><text x="${SX+12}" y="${s.y+19}">${s.label}</text><text class="sub" x="${SX+12}" y="${s.y+34}" id="ss-${s.k}">${s.sub}</text></g>`;
@@ -232,7 +232,7 @@ function render(s){
   setText('current', s.current ? `now: ${s.current}` : '');
   // engines: Claude families
   const maxTok = Math.max(1, ...Object.values(s.models).map(m => m.tokens));
-  for (const f of ['haiku','sonnet','opus','fable']) {
+  for (const f of ['haiku','sonnet','opus']) {
     const m = s.models[f] || { tokens:0, cost:0, agents:0, running:0 };
     setOn('n-'+f, m.running);
     setText('nd-'+f, m.running ? '  ●'.repeat(Math.min(m.running, 4)) : '');
