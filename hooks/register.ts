@@ -152,7 +152,8 @@ export const register: Register = (on) => {
 
   // every action, of the session and of each agent, as it starts and as it ends
   on('tool.call', async ($, e, next) => {
-    if (!active) return next(e)
+    // internal plumbing, not work anyone needs to watch
+    if (!active || e.tool === 'SubagentHandback') return next(e)
     const what = summary(e as unknown as Record<string, unknown>)
     void post($, { type: 'act', agentId: e.agentId ?? null, tool: e.tool, summary: what, skill })
     const ran = await next(e)
