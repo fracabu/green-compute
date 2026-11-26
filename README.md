@@ -24,7 +24,7 @@ green-compute puts four tools behind one question, **where should this run?**, s
 
 | Plugin | What it does |
 |---|---|
-| **green-compute** | the `where-to-run` skill: decides between Claude, an open model on OpenRouter, Kaggle's free GPUs and your PC; scripts to read OpenRouter's live prices and to run text batches on an open model |
+| **green-compute** | the `where-to-run` skill (Claude, an open model on OpenRouter, Kaggle's free GPUs or your PC?), the `/green` command, a live control room that shows every skill, agent, model and engine at work, and scripts for OpenRouter's live prices and text batches |
 | [**token-diet**](https://github.com/fracabu/token-diet) | the right Claude model and effort for each phase of a job, with a live monitor of what you save |
 | [**kaggle-offload**](https://github.com/fracabu/kaggle-offload) | runs heavy AI jobs on Kaggle's free GPUs (about 30 hours a week), batches them, tracks the quota |
 | [**or-switch**](https://github.com/fracabu/or-switch) | `/or` moves the conversation to an OpenRouter model (DeepSeek, Kimi, Qwen, GLM, Gemini, free ones), `/claude` brings it back. Windows |
@@ -48,6 +48,22 @@ flowchart TD
 ```
 
 Before any bulk run on an open model, the skill runs a **pilot**: the same 5-10 items on the open model and on Claude, compared side by side. It only goes on if quality holds, and a sample of the batch is checked on Claude afterwards.
+
+## The control room
+
+One page, the whole window, no scrolling: which skill is working, every sub-agent with its model, tokens and time, what each engine is doing (Claude's models, OpenRouter, Kaggle's GPU, your PC's CPU), what the run costs against "all on Opus", and your plan's 5-hour and weekly usage. The event log opens from a button at the bottom (or the `L` key).
+
+<img src="docs/control-room.png" alt="green-compute control room: skills on the left wired to engines on the right, the agents list, token-diet's job grid, and a cost strip showing 87% saved versus all on Opus" width="840">
+
+You don't feed it by hand. The plugin's hooks module listens to Claude Code: when one of green-compute's skills runs in a session, it starts the room on `localhost:4790`, opens it, and from then on records every skill, sub-agent spawn and report, the token usage of every turn, and the batches sent to OpenRouter or Kaggle. Sessions that never use these skills record nothing.
+
+**`/green <the job>`** is the explicit way in. Type it before a job you already know needs this: it opens the control room with the job as the run's title, decides where each part runs with `where-to-run`, then does the job.
+
+```
+/green translate the 2,000 product pages to English and transcribe the 3 hours of interviews
+```
+
+To see it with made-up data: `node control-room/demo.mjs` from the plugin's folder (port 4791, nothing real is read).
 
 ## Install
 
@@ -88,7 +104,7 @@ Example from `or-models.mjs` on 27 November 2026, blended price per million toke
 
 ## Status
 
-Tested on Windows 11. `or-models.mjs` and `or-batch.mjs` against the live OpenRouter API (a first live batch of translations on DeepSeek: with reasoning on, one answer came back empty because thinking used up `--max-tokens`; now that is an error that gets retried, and `--reasoning none` brought the cost down about tenfold), plus a local mock for retries and resume. Still to test: or-switch's full hand-off with a real key. macOS and Linux: untested, and or-switch needs a shell version of its launcher. Issues and reports are welcome.
+Tested on Windows 11. The control room and its hooks module in a real headless session (a skill, a Haiku sub-agent, its tokens, the room starting on its own) and at 1280×720, 1440×900 and 1920×1080 with no scrolling. `or-models.mjs` and `or-batch.mjs` against the live OpenRouter API (a first live batch of translations on DeepSeek: with reasoning on, one answer came back empty because thinking used up `--max-tokens`; now that is an error that gets retried, and `--reasoning none` brought the cost down about tenfold), plus a local mock for retries and resume. Still to test: or-switch's full hand-off with a real key. macOS and Linux: untested, and or-switch needs a shell version of its launcher. Issues and reports are welcome.
 
 ## License
 

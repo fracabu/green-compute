@@ -1,0 +1,351 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>green-compute · control room</title>
+<style>
+  :root{
+    --bg:#0c0d0b; --card:#121310; --cell:#161714; --ink:#e9e7df; --muted:#77766d; --line:#262722; --faint:#1c1d19;
+    --haiku:#2dd4ee; --sonnet:#fbbf24; --opus:#ff4fa3; --fable:#a78bfa; --other:#9aa0a6; --or:#7dd3fc; --kaggle:#20beff; --pc:#e9e7df;
+    --acid:#c6f432; --stop:#ff6b3d;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;overflow:hidden;background:var(--bg);color:var(--ink)}
+  body{font:12.5px/1.4 "JetBrains Mono","Cascadia Mono","SF Mono",Consolas,ui-monospace,monospace;
+    display:grid;grid-template-rows:auto minmax(0,1fr) auto;height:100vh;padding:14px 18px 10px;gap:12px}
+  .muted{color:var(--muted)} b{font-weight:600}
+  .num{font-variant-numeric:tabular-nums}
+
+  /* header */
+  header{display:flex;align-items:center;gap:18px;min-width:0}
+  .prompt{display:flex;align-items:baseline;gap:10px;font-size:15px;min-width:0;flex:1}
+  .prompt .ps{color:var(--acid);white-space:nowrap;flex:none}
+  #title{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .cur{display:inline-block;width:8px;height:15px;background:var(--acid);vertical-align:-2px;animation:blink 1s steps(1) infinite;flex:none}
+  @keyframes blink{50%{opacity:0}}
+  .live{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--acid);margin-right:6px;animation:pulse 1.6s infinite}
+  .live.off{background:var(--stop);animation:none}
+  @keyframes pulse{0%{box-shadow:0 0 0 0 rgba(198,244,50,.45)}70%{box-shadow:0 0 0 7px rgba(198,244,50,0)}100%{box-shadow:0 0 0 0 rgba(198,244,50,0)}}
+  .hstat{display:flex;align-items:center;gap:7px;white-space:nowrap;font-size:11.5px}
+  .mini{width:70px;height:6px;background:var(--faint);position:relative;overflow:hidden}
+  .mini i{position:absolute;inset:0 auto 0 0;background:#4a4b44}
+  .mini i.run{background:var(--acid)}
+
+  /* main grid */
+  main{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);grid-template-rows:minmax(0,1fr) auto;gap:12px;min-height:0}
+  .panel{background:var(--card);border:1px solid var(--line);padding:10px 12px;min-height:0;min-width:0;display:flex;flex-direction:column;overflow:hidden}
+  .lab{font-size:10.5px;letter-spacing:.06em;color:var(--muted);margin-bottom:6px;display:flex;justify-content:space-between;gap:8px;flex:none}
+  #flowp{grid-row:1;grid-column:1}
+  #right{grid-row:1;grid-column:2;display:grid;grid-template-rows:minmax(0,1fr) auto;gap:12px;min-height:0}
+  #costp{grid-row:2;grid-column:1 / span 2}
+
+  /* flow */
+  #flow{flex:1;min-height:0;width:100%}
+  .node rect{fill:var(--cell);stroke:var(--line);stroke-width:1.2;transition:stroke .4s,fill .4s}
+  .node text{fill:var(--ink);font:600 12px "JetBrains Mono",Consolas,monospace}
+  .node .sub{fill:var(--muted);font-weight:400;font-size:10px}
+  .node.on rect{stroke:var(--acid);fill:#171a10}
+  .node.on .halo{opacity:1}
+  .halo{opacity:0;transition:opacity .4s}
+  .edge{fill:none;stroke:#2c2d27;stroke-width:1.6;transition:stroke .4s}
+  .edge.on{stroke:var(--c,var(--acid));stroke-width:2.2;stroke-dasharray:6 6;animation:flow .6s linear infinite}
+  @keyframes flow{to{stroke-dashoffset:-12}}
+  .grp{fill:none;stroke:var(--line);stroke-dasharray:3 4}
+  .bar-bg{fill:var(--faint)}
+
+  /* agents */
+  #agents{flex:1;min-height:0;overflow:hidden;display:flex;flex-direction:column;gap:3px}
+  .ag{display:grid;grid-template-columns:14px minmax(0,1fr) 88px 58px 62px 44px;gap:8px;align-items:center;padding:4px 6px;background:var(--cell);border-left:3px solid var(--c);flex:none}
+  .ag .d{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .ag .sk{color:var(--muted);font-size:10.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .ag .m{color:var(--c);font-weight:600}
+  .ag .r{text-align:right}
+  .ag.done{opacity:.6}
+  .ag.running .st{color:var(--acid)}
+  .ag.failed .st,.ag.stopped .st{color:var(--stop)}
+  .more{color:var(--muted);font-size:11px;padding:2px 6px;flex:none}
+  .empty{color:var(--muted);padding:10px 2px}
+
+  /* jobs (token-diet grid, compact) */
+  #jobsp[hidden]{display:none}
+  #jobsp .grid{display:grid;gap:3px;font-size:10.5px}
+  .jc{height:16px;background:var(--cell);border:1px solid var(--line);display:flex;align-items:center;justify-content:center}
+  .jc.running{border-color:var(--c);color:var(--c)} .jc.done{background:color-mix(in srgb,var(--c) 22%,var(--cell));border-color:color-mix(in srgb,var(--c) 55%,transparent)}
+  .jc.stop,.jc.error{border-color:var(--stop);color:var(--stop)}
+  .jn{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+  /* cost strip */
+  #cost{display:grid;grid-template-columns:auto minmax(0,1.4fr) minmax(0,1fr) minmax(0,1fr);gap:22px;align-items:center}
+  .big{font-size:46px;line-height:1;font-weight:700;letter-spacing:-.03em;color:var(--acid)}
+  .big small{font-size:18px}
+  .stack{display:flex;height:10px;background:var(--faint);overflow:hidden;margin:6px 0}
+  .stack div{flex-basis:0;transition:flex-grow .8s}
+  .legend{display:flex;flex-wrap:wrap;gap:4px 12px;font-size:11px}
+  .legend i{display:inline-block;width:8px;height:8px;margin-right:5px}
+  .kv{display:flex;justify-content:space-between;gap:10px;font-size:11.5px;padding:2px 0;border-bottom:1px dashed var(--faint)}
+  .kv:last-child{border-bottom:0} .kv span{color:var(--muted)}
+
+  /* footer + log drawer */
+  footer{display:flex;align-items:center;gap:14px;font-size:11px;color:var(--muted)}
+  footer button{font:inherit;color:var(--ink);background:var(--card);border:1px solid var(--line);padding:4px 10px;cursor:pointer}
+  footer button:hover,footer button[aria-expanded=true]{border-color:var(--acid);color:var(--acid)}
+  #drawer{position:fixed;left:18px;right:18px;bottom:44px;height:42vh;background:#0f100d;border:1px solid var(--acid);display:none;flex-direction:column;box-shadow:0 -12px 40px rgba(0,0,0,.6)}
+  #drawer.open{display:flex}
+  #drawer .lab{padding:8px 12px 0}
+  #logs{flex:1;overflow:auto;padding:4px 12px 10px;font-size:11.5px}
+  #logs .r{display:grid;grid-template-columns:70px 92px 1fr;gap:10px;white-space:nowrap}
+  #logs .r span:last-child{overflow:hidden;text-overflow:ellipsis}
+</style>
+</head>
+<body>
+<header>
+  <div class="prompt"><span class="ps">~ $</span><span id="title">green-compute</span><span class="cur"></span></div>
+  <div class="hstat"><span class="live off" id="live"></span><span id="conn">connecting…</span> · <b id="elapsed" class="num">00:00</b></div>
+  <div class="hstat" title="Claude plan: 5-hour window (grey before this run, green during it)">5h <span class="mini"><i id="h5pre"></i><i class="run" id="h5run"></i></span><b id="h5" class="num">n/a</b></div>
+  <div class="hstat" title="Claude plan: weekly limit">week <span class="mini"><i id="d7pre"></i><i class="run" id="d7run"></i></span><b id="d7" class="num">n/a</b></div>
+  <div class="hstat" title="OpenRouter key: spent / limit">OpenRouter <b id="orc" class="num">n/a</b></div>
+  <div class="hstat" title="Kaggle GPU hours used this week">Kaggle GPU <b id="kq" class="num">n/a</b></div>
+</header>
+
+<main>
+  <section class="panel" id="flowp">
+    <div class="lab"><span>skills → engines · what is working now</span><span id="current"></span></div>
+    <svg id="flow" viewBox="0 0 640 360" preserveAspectRatio="xMidYMid meet"></svg>
+  </section>
+
+  <div id="right">
+    <section class="panel">
+      <div class="lab"><span>agents</span><span id="agcount"></span></div>
+      <div id="agents"><div class="empty">no agents yet: they appear here as soon as one starts</div></div>
+    </section>
+    <section class="panel" id="jobsp" hidden>
+      <div class="lab"><span id="jobstitle">token-diet jobs</span><span id="jobscount"></span></div>
+      <div class="grid" id="jobs"></div>
+    </section>
+  </div>
+
+  <section class="panel" id="costp">
+    <div id="cost">
+      <div><div class="lab"><span>saved vs all on Opus</span></div><div class="big num" id="saved">0<small>%</small></div></div>
+      <div>
+        <div class="lab"><span>tokens by model</span><span id="tottok" class="num"></span></div>
+        <div class="stack" id="stack"></div>
+        <div class="legend" id="legend"></div>
+      </div>
+      <div>
+        <div class="kv"><span>this run, at API prices</span><b class="num" id="measured">$0.00</b></div>
+        <div class="kv"><span>same work all on Opus</span><b class="num" id="allopus">$0.00</b></div>
+        <div class="kv"><span>coordinating session</span><b class="num" id="sess">0</b></div>
+      </div>
+      <div>
+        <div class="kv"><span>plan week used by this run</span><b class="num" id="weekrun">n/a</b></div>
+        <div class="kv"><span>OpenRouter this run</span><b class="num" id="orrun">$0.00</b></div>
+        <div class="kv"><span>Kaggle runs this run</span><b class="num" id="krun">0</b></div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <button id="logbtn" aria-expanded="false" aria-controls="drawer">logs ▴</button>
+  <span>Claude costs are estimates at API prices; on a subscription the plan bars are what you really spend. OpenRouter costs are the ones it reports.</span>
+</footer>
+
+<div id="drawer" role="region" aria-label="event log">
+  <div class="lab"><span>event log · newest first</span><span>press L to toggle</span></div>
+  <div id="logs"></div>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const fmtK = n => n >= 1e6 ? (n/1e6).toFixed(2)+'M' : n >= 1000 ? Math.round(n/1000)+'k' : String(Math.round(n || 0));
+const fmtT = s => { s = Math.max(0, Math.round(s)); const h = Math.floor(s/3600), m = Math.floor(s%3600/60), r = s%60; return (h ? h+':' : '') + String(m).padStart(2,'0') + ':' + String(r).padStart(2,'0'); };
+const usd = v => '$' + (v < 0.01 && v > 0 ? v.toFixed(4) : v.toFixed(2));
+const COLOR = f => `var(--${['haiku','sonnet','opus','fable'].includes(f) ? f : 'other'})`;
+
+// ---------- flow diagram ----------
+const SK = [
+  { k:'green', label:'/green', sub:'the run you asked for', y:28 },
+  { k:'where-to-run', label:'where-to-run', sub:'decides the engine', y:98 },
+  { k:'token-diet', label:'token-diet', sub:'model per phase', y:168 },
+  { k:'kaggle-offload', label:'kaggle-offload', sub:'free GPUs', y:238 },
+  { k:'or-switch', label:'or-switch', sub:'/or · /claude', y:308 },
+];
+const EN = [
+  { k:'haiku', label:'haiku', y:30, c:'--haiku' }, { k:'sonnet', label:'sonnet', y:72, c:'--sonnet' },
+  { k:'opus', label:'opus', y:114, c:'--opus' }, { k:'fable', label:'fable', y:156, c:'--fable' },
+  { k:'openrouter', label:'OpenRouter', y:210, c:'--or' }, { k:'kaggle', label:'Kaggle GPU', y:262, c:'--kaggle' },
+  { k:'pc', label:'this PC', y:314, c:'--pc' },
+];
+const EDGES = [
+  ['where-to-run','haiku'],['where-to-run','sonnet'],['where-to-run','opus'],['where-to-run','openrouter'],['where-to-run','kaggle'],['where-to-run','pc'],
+  ['token-diet','haiku'],['token-diet','sonnet'],['token-diet','opus'],['token-diet','fable'],
+  ['kaggle-offload','kaggle'],['kaggle-offload','pc'],['or-switch','openrouter'],
+];
+const SX = 14, SW = 190, EX = 400, EW = 226, NH = 44;
+function buildFlow(){
+  const sy = k => SK.find(s => s.k === k).y + NH/2, ey = k => EN.find(e => e.k === k).y + NH/2;
+  let h = `<rect class="grp" x="${EX-8}" y="22" width="${EW+16}" height="186" rx="4"/><text x="${EX}" y="16" fill="var(--muted)" font-size="10">CLAUDE</text>`;
+  h += `<path class="edge" id="e-green" d="M${SX+30} ${28+NH} L${SX+30} 98"/>`;
+  for (const [a,b] of EDGES) { const y1 = sy(a), y2 = ey(b), mx = (SX+SW+EX)/2; h += `<path class="edge" id="e-${a}-${b}" style="--c:var(${EN.find(e=>e.k===b).c})" d="M${SX+SW} ${y1} C${mx} ${y1}, ${mx} ${y2}, ${EX} ${y2}"/>`; }
+  for (const s of SK) h += `<g class="node" id="s-${s.k}"><rect class="halo" x="${SX-3}" y="${s.y-3}" width="${SW+6}" height="${NH+6}" rx="6" fill="none" stroke="var(--acid)" stroke-opacity=".25" stroke-width="5"/><rect x="${SX}" y="${s.y}" width="${SW}" height="${NH}" rx="4"/><text x="${SX+12}" y="${s.y+19}">${s.label}</text><text class="sub" x="${SX+12}" y="${s.y+34}" id="ss-${s.k}">${s.sub}</text></g>`;
+  for (const e of EN) h += `<g class="node" id="n-${e.k}"><rect class="halo" x="${EX-3}" y="${e.y-3}" width="${EW+6}" height="${NH+6}" rx="6" fill="none" stroke="var(${e.c})" stroke-opacity=".3" stroke-width="5"/><rect x="${EX}" y="${e.y}" width="${EW}" height="${NH}" rx="4"/><rect x="${EX}" y="${e.y}" width="4" height="${NH}" fill="var(${e.c})"/><text x="${EX+14}" y="${e.y+18}">${e.label}<tspan id="nd-${e.k}" fill="var(${e.c})"></tspan></text><text class="sub" x="${EX+14}" y="${e.y+31}" id="ns-${e.k}">idle</text><rect class="bar-bg" x="${EX+14}" y="${e.y+NH-7}" width="${EW-28}" height="3"/><rect id="nb-${e.k}" x="${EX+14}" y="${e.y+NH-7}" width="0" height="3" fill="var(${e.c})"/></g>`;
+  $('flow').innerHTML = h;
+}
+buildFlow();
+const setOn = (id, on) => { const el = $(id); if (el) el.classList.toggle('on', !!on); };
+const setText = (id, t) => { const el = $(id); if (el && el.textContent !== t) el.textContent = t; };
+const setBar = (id, frac) => { const el = $(id); if (el) el.setAttribute("width", String(Math.max(0, Math.min(1, frac || 0)) * (EW - 28))); };
+
+// ---------- render ----------
+let last = null;
+function render(s){
+  last = s;
+  setText('title', s.run.title);
+  const now = s.now, recent = t => t && now - t < 90000;
+  // skills
+  const runningBySkill = {};
+  for (const a of s.agents) if (a.status === 'running') runningBySkill[a.skill] = (runningBySkill[a.skill] || 0) + 1;
+  for (const sk of SK) {
+    const st = s.skills[sk.k] || {};
+    const busy = runningBySkill[sk.k] || 0;
+    const on = busy || recent(st.last) || (sk.k === s.current && Object.keys(runningBySkill).length);
+    setOn('s-'+sk.k, on);
+    setText('ss-'+sk.k, busy ? `${busy} agent${busy>1?'s':''} working` : st.count ? `used ${st.count}× · ${sk.sub}` : sk.sub);
+  }
+  setOn('e-green', s.skills.green?.count && (recent(s.skills.green.last) || Object.keys(runningBySkill).length));
+  setText('current', s.current ? `now: ${s.current}` : '');
+  // engines: Claude families
+  const maxTok = Math.max(1, ...Object.values(s.models).map(m => m.tokens));
+  for (const f of ['haiku','sonnet','opus','fable']) {
+    const m = s.models[f] || { tokens:0, cost:0, agents:0, running:0 };
+    setOn('n-'+f, m.running);
+    setText('nd-'+f, m.running ? '  ●'.repeat(Math.min(m.running, 4)) : '');
+    setText('ns-'+f, m.tokens ? `${fmtK(m.tokens)} tok · ${usd(m.cost)} · ${m.agents} agent${m.agents===1?'':'s'}` : 'idle');
+    setBar('nb-'+f, m.tokens / maxTok);
+    for (const src of ['token-diet','where-to-run']) {
+      const busy = s.agents.some(a => a.status === 'running' && a.family === f && (a.skill === src || (src === 'token-diet' && !['where-to-run','kaggle-offload'].includes(a.skill))));
+      setOn(`e-${src}-${f}`, busy);
+    }
+  }
+  // OpenRouter
+  const o = s.openrouter, cr = o.credit;
+  setOn('n-openrouter', o.active || o.switchedTo);
+  setText('nd-openrouter', o.active ? '  ●' : '');
+  setText('ns-openrouter', o.switchedTo ? `session on ${o.switchedTo}` : o.runs || o.active ? `${o.runs} batch${o.runs===1?'':'es'} · ${fmtK(o.tokensIn + o.tokensOut)} tok · ${usd(o.cost)}` : o.hasKey ? 'idle · key ready' : 'no key');
+  setBar('nb-openrouter', cr && cr.limit ? cr.usage / cr.limit : 0);
+  setOn('e-where-to-run-openrouter', o.active); setOn('e-or-switch-openrouter', o.switchedTo);
+  // Kaggle
+  const k = s.kaggle, q = k.quota?.gpu, kRun = k.active || (k.running && k.running.length);
+  setOn('n-kaggle', kRun);
+  setText('nd-kaggle', kRun ? '  ●' : '');
+  setText('ns-kaggle', kRun ? (k.running?.[0]?.description || k.last?.label || 'running') : q ? `${q.used.toFixed(1)} / ${q.total} h this week` : 'no quota read yet');
+  setBar('nb-kaggle', q ? q.used / q.total : 0);
+  setOn('e-kaggle-offload-kaggle', kRun); setOn('e-where-to-run-kaggle', kRun && s.current === 'where-to-run');
+  // PC
+  setOn('n-pc', s.pc.cpu >= 60);
+  setText('ns-pc', `cpu ${s.pc.cpu}% · ram ${s.pc.mem}%${s.pc.cpu >= 60 ? ' · busy' : ''}`);
+  setBar('nb-pc', s.pc.cpu / 100);
+
+  // header
+  setText('elapsed', fmtT((now - s.run.t0) / 1000));
+  for (const [key, id] of [['h5','h5'],['d7','d7']]) {
+    const v = s.plan?.[key], v0 = s.planAtStart?.[key];
+    if (typeof v !== 'number') continue;
+    const sameWin = s.planAtStart && s.planAtStart[key+'r'] === s.plan[key+'r'];
+    const pre = sameWin && typeof v0 === 'number' ? v0 : 0;
+    $(id+'pre').style.width = Math.min(100, pre) + '%';
+    $(id+'run').style.left = Math.min(100, pre) + '%'; $(id+'run').style.width = Math.max(0, Math.min(100 - pre, v - pre)) + '%';
+    setText(id, Math.round(v) + '%');
+  }
+  setText('orc', cr ? `${usd(cr.usage)}${cr.limit ? ' / $' + cr.limit : ''}` : o.hasKey ? '…' : 'no key');
+  setText('kq', q ? `${q.used.toFixed(1)} / ${q.total} h` : 'n/a');
+
+  // agents: running first, then the latest finished, as many as fit
+  const list = [...s.agents].sort((a, b) => (a.status === 'running') - (b.status === 'running') || a.start - b.start).reverse();
+  const box = $('agents');
+  const fit = Math.max(1, Math.floor((box.clientHeight + 3) / 29));
+  const rows = list.slice(0, list.length > fit ? fit - 1 : fit);
+  const running = list.filter(a => a.status === 'running').length;
+  setText('agcount', s.agents.length ? `${running} running · ${s.agents.length} total` : '');
+  box.innerHTML = rows.length ? rows.map(a => {
+    const t = ((a.end || now) - a.start) / 1000;
+    const icon = a.status === 'running' ? '▸' : a.status === 'completed' ? '✓' : '✕';
+    return `<div class="ag ${a.status === 'running' ? 'running' : a.status === 'completed' ? 'done' : a.status}" style="--c:${COLOR(a.family)}"><span class="st">${icon}</span><span class="d" title="${esc(a.description)}">${esc(a.description)}</span><span class="sk">${esc(a.skill || '')}</span><span class="m">${esc(a.family === 'other' ? (a.model || '?') : a.family)}</span><span class="r num">${a.tokens ? fmtK(a.tokens) : '·'}</span><span class="r num">${fmtT(t)}</span></div>`;
+  }).join('') + (list.length > rows.length ? `<div class="more">+${list.length - rows.length} more · open the log for all</div>` : '')
+  : '<div class="empty">no agents yet: they appear here as soon as one starts</div>';
+
+  // token-diet jobs (compact)
+  const J = s.jobs; $('jobsp').hidden = !J || !J.jobs.length;
+  if (J && J.jobs.length) {
+    setText('jobstitle', J.title ? `token-diet · ${J.title}` : 'token-diet jobs');
+    const done = J.jobs.filter(j => J.phases.every(p => j.cells[p.k] === 'done')).length;
+    setText('jobscount', `${done}/${J.jobs.length} done`);
+    const g = $('jobs'); g.style.gridTemplateColumns = `minmax(0,1.3fr) repeat(${J.phases.length}, minmax(0,1fr))`;
+    const maxRows = 6;
+    g.innerHTML = `<span class="muted">job</span>` + J.phases.map(p => `<span class="muted jn">${esc(p.k)}</span>`).join('') +
+      J.jobs.slice(-maxRows).map(j => `<span class="jn">${esc(j.name)}</span>` + J.phases.map(p => { const c = j.cells[p.k] || 'waiting'; return `<span class="jc ${c}" style="--c:${COLOR(p.model)}">${c === 'running' ? '▸' : c === 'done' ? '✓' : c === 'waiting' ? '' : '✕'}</span>`; }).join('')).join('') +
+      (J.jobs.length > maxRows ? `<span class="muted" style="grid-column:1/-1">+${J.jobs.length - maxRows} earlier jobs</span>` : '');
+  }
+
+  // cost strip
+  const T = s.totals;
+  $('saved').innerHTML = `${Math.round(Math.max(0, T.saved) * 100)}<small>%</small>`;
+  setText('measured', usd(T.measured)); setText('allopus', usd(T.allOpus));
+  setText('sess', `${fmtK(s.session.tokens)} tok · ${usd(s.session.cost)}`);
+  const parts = ['haiku','sonnet','opus','fable','other'].map(f => [f, s.models[f]?.tokens || 0]).filter(([, v]) => v);
+  if (o.tokensIn + o.tokensOut) parts.push(['openrouter', o.tokensIn + o.tokensOut]);
+  const tot = parts.reduce((a, [, v]) => a + v, 0);
+  setText('tottok', tot ? fmtK(tot) + ' tokens' : '');
+  const col = f => f === 'openrouter' ? 'var(--or)' : COLOR(f);
+  $('stack').innerHTML = parts.map(([f, v]) => `<div style="background:${col(f)};flex-grow:${v}"></div>`).join('');
+  $('legend').innerHTML = parts.map(([f, v]) => `<span><i style="background:${col(f)}"></i>${f} ${fmtK(v)} · ${Math.round(v / tot * 100)}%</span>`).join('') || '<span class="muted">tokens appear when a turn or an agent finishes</span>';
+  const w0 = s.planAtStart?.d7, w1 = s.plan?.d7;
+  setText('weekrun', typeof w0 === 'number' && typeof w1 === 'number' && s.planAtStart.d7r === s.plan.d7r ? `+${(w1 - w0).toFixed(1)}%` : 'n/a');
+  const orRun = cr && s.openrouter.creditAtStart ? cr.usage - s.openrouter.creditAtStart.usage : o.cost;
+  setText('orrun', usd(Math.max(0, orRun)));
+  setText('krun', String(k.runs));
+}
+
+// ---------- log drawer ----------
+function describe(e){
+  switch (e.type) {
+    case 'run': return ['run', `new run: ${e.title}`];
+    case 'skill': return ['skill', e.skill];
+    case 'agent-start': return ['agent ▸', `${e.description || e.subagentType} · ${e.model || ''}${e.skill ? ' · ' + e.skill : ''}`];
+    case 'agent-end': return ['agent ' + (e.status === 'completed' ? '✓' : '✕'), `${e.agentId?.slice(0, 8) || ''} ${e.status}`];
+    case 'usage': return [e.agentId ? 'tokens' : 'turn', (e.usage || []).map(u => `${u.model}: ${fmtK((u.input||0)+(u.output||0)+(u.cacheRead||0)+(u.cacheWrite||0))}`).join(', ') + (e.durationMs ? ` · ${fmtT(e.durationMs/1000)}` : '')];
+    case 'engine': return [e.engine, `${e.status} · ${e.label || ''}${e.detail?.cost != null ? ' · $' + e.detail.cost : ''}`];
+    case 'switch': return ['/or', `session → ${e.model}`];
+    default: return [e.type || '?', JSON.stringify(e).slice(0, 160)];
+  }
+}
+async function loadLog(){
+  try {
+    const rows = await (await fetch('/log')).json();
+    $('logs').innerHTML = rows.slice().reverse().map(e => { const [k, d] = describe(e); return `<div class="r"><span class="muted">${new Date(e.t).toLocaleTimeString()}</span><span>${esc(k)}</span><span title="${esc(d)}">${esc(d)}</span></div>`; }).join('') || '<div class="empty">no events yet</div>';
+  } catch {}
+}
+let logTimer = null;
+function toggleLog(force){
+  const open = force ?? !$('drawer').classList.contains('open');
+  $('drawer').classList.toggle('open', open); $('logbtn').setAttribute('aria-expanded', open); $('logbtn').textContent = open ? 'logs ▾' : 'logs ▴';
+  clearInterval(logTimer); if (open) { loadLog(); logTimer = setInterval(loadLog, 2000); }
+}
+$('logbtn').onclick = () => toggleLog();
+document.addEventListener('keydown', e => { if (e.key === 'l' || e.key === 'L') toggleLog(); if (e.key === 'Escape') toggleLog(false); });
+window.addEventListener('resize', () => last && render(last));
+
+// ---------- live ----------
+function connect(){
+  const es = new EventSource('/stream');
+  es.onopen = () => { $('live').classList.remove('off'); setText('conn', 'live'); };
+  es.onerror = () => { $('live').classList.add('off'); setText('conn', 'reconnecting…'); };
+  es.onmessage = m => render(JSON.parse(m.data));
+}
+connect();
+</script>
+</body>
+</html>
