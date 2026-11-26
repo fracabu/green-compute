@@ -63,7 +63,9 @@ OpenRouter**, called from a script so the Claude session stays where it is:
    take approved outputs). Compare them side by side with the user. Go on only if quality holds.
 3. **Run the batch**: `GC/or-batch.mjs --model <id> --in jobs.jsonl --out results.jsonl --system "<rules>"`.
    `jobs.jsonl` has one `{"id", "prompt"}` per line; a stopped run resumes; the cost OpenRouter reports
-   is printed at the end. Needs `OPENROUTER_API_KEY`.
+   is printed at the end. Needs `OPENROUTER_API_KEY`. For simple tasks add `--reasoning none` (or `low`):
+   many models otherwise think before answering, which costs tokens and can use up `--max-tokens`
+   (an empty answer is recorded as an error and retried on the next run).
 4. **Verify a sample on Claude** (more when errors cost more), as token-diet would for a production phase.
 
 ### 5. Is the plan running out?

@@ -20,7 +20,7 @@ const asJson = args.includes('--json');
 if (!GROUPS[group]) { console.error(`unknown group "${group}": ${Object.keys(GROUPS).join(', ')}`); process.exit(1); }
 
 const res = await fetch('https://openrouter.ai/api/v1/models', { signal: AbortSignal.timeout(20000) });
-if (!res.ok) { console.error(`OpenRouter answered ${res.status}`); process.exit(1); }
+if (!res.ok) throw new Error(`OpenRouter answered ${res.status}`);
 const all = (await res.json()).data
   .filter(m => (m.supported_parameters || []).includes('tools'))
   .filter(m => !m.id.endsWith(':batch'))
@@ -40,10 +40,14 @@ const rows = picked.map(m => ({
   context: m.context_length,
 }));
 
-if (asJson) { console.log(JSON.stringify({ checked: new Date().toISOString(), group, models: rows, claude: CLAUDE }, null, 2)); process.exit(0); }
-const pad = (s, n) => String(s).padEnd(n);
-console.log(`OpenRouter, group "${group}", tool calling only, checked ${new Date().toISOString().slice(0, 16).replace('T', ' ')} UTC`);
-console.log(pad('model', 40) + pad('released', 12) + pad('$ in/M', 9) + pad('$ out/M', 9) + pad('blend*', 8) + 'context');
-for (const r of rows) console.log(pad(r.id, 40) + pad(r.released, 12) + pad(r.input, 9) + pad(r.output, 9) + pad(r.blended, 8) + r.context);
-console.log('\n* blend = 85% input + 15% output, the same mix token-diet uses. For comparison, Claude: ' +
-  Object.entries(CLAUDE).map(([k, [i, o]]) => `${k} ${(0.85 * i + 0.15 * o).toFixed(2)}`).join(', ') + ' (checked 26/11/2026).');
+// No process.exit() after fetch: on Windows it can crash Node while the connection is closing.
+if (asJson) {
+  console.log(JSON.stringify({ checked: new Date().toISOString(), group, models: rows, claude: CLAUDE }, null, 2));
+} else {
+  const pad = (s, n) => String(s).padEnd(n);
+  console.log(`OpenRouter, group "${group}", tool calling only, checked ${new Date().toISOString().slice(0, 16).replace('T', ' ')} UTC`);
+  console.log(pad('model', 40) + pad('released', 12) + pad('$ in/M', 9) + pad('$ out/M', 9) + pad('blend*', 8) + 'context');
+  for (const r of rows) console.log(pad(r.id, 40) + pad(r.released, 12) + pad(r.input, 9) + pad(r.output, 9) + pad(r.blended, 8) + r.context);
+  console.log('\n* blend = 85% input + 15% output, the same mix token-diet uses. For comparison, Claude: ' +
+    Object.entries(CLAUDE).map(([k, [i, o]]) => `${k} ${(0.85 * i + 0.15 * o).toFixed(2)}`).join(', ') + ' (checked 26/11/2026).');
+}

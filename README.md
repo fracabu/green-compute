@@ -75,7 +75,7 @@ Just ask Claude: *"where should this run?"*, *"can DeepSeek do this part?"*, *"t
 |---|---|
 | `node scripts/or-models.mjs` | newest Chinese open models with tool calling and their live prices, next to Claude's |
 | `node scripts/or-models.mjs --group free` | the same for free models (`gemini`, `others`, `all` too; `--json` for scripts) |
-| `node scripts/or-batch.mjs --model <id> --in jobs.jsonl --out results.jsonl --system "<rules>"` | runs `{"id", "prompt"}` lines on an OpenRouter model, 4 at a time, retries on rate limits, resumes a stopped run, prints the cost OpenRouter reports |
+| `node scripts/or-batch.mjs --model <id> --in jobs.jsonl --out results.jsonl --system "<rules>" --reasoning none` | runs `{"id", "prompt"}` lines on an OpenRouter model, 4 at a time, retries on rate limits, resumes a stopped run, prints the cost OpenRouter reports. `--reasoning none` or `low` for simple tasks |
 
 Example from `or-models.mjs` on 27 November 2026, blended price per million tokens (85% input, 15% output): `deepseek/deepseek-v4.1-flash` $0.07, `qwen/qwen4-max` $1.85, `moonshotai/kimi-k3.1-pro` $1.46, against Claude Haiku $0.16, Sonnet $3.20, Opus $6.40. Prices change: the script reads them live every time.
 
@@ -88,7 +88,7 @@ Example from `or-models.mjs` on 27 November 2026, blended price per million toke
 
 ## Status
 
-Tested on Windows 11. `or-models.mjs` against the live OpenRouter API; `or-batch.mjs` against a local mock of the API (retries, errors, resume). Still to test: a live OpenRouter batch, and or-switch's full hand-off with a real key. macOS and Linux: untested, and or-switch needs a shell version of its launcher. Issues and reports are welcome.
+Tested on Windows 11. `or-models.mjs` and `or-batch.mjs` against the live OpenRouter API (a first live batch of translations on DeepSeek: with reasoning on, one answer came back empty because thinking used up `--max-tokens`; now that is an error that gets retried, and `--reasoning none` brought the cost down about tenfold), plus a local mock for retries and resume. Still to test: or-switch's full hand-off with a real key. macOS and Linux: untested, and or-switch needs a shell version of its launcher. Issues and reports are welcome.
 
 ## License
 
