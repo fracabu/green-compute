@@ -81,6 +81,13 @@ Then, for the parts you'll use:
 
 - **OpenRouter**: an API key from [openrouter.ai](https://openrouter.ai), either in `OPENROUTER_API_KEY` (`setx OPENROUTER_API_KEY "sk-or-v1-..."` on Windows) or in a `.env` file in the plugin's folder (copy `.env.example`; it is git-ignored). Set a credit limit on the key.
 - **Kaggle**: `pip install kaggle`, a Kaggle account with a verified phone number and an API token: see [kaggle-offload](https://github.com/fracabu/kaggle-offload#quick-start).
+- **Direct tasks** (optional): send some kinds of work straight to one OpenRouter model, with no pilot against Claude, in `~/.green-compute/config.json`:
+
+  ```json
+  { "direct": { "model": "qwen/qwen3.8-27b", "tasks": ["translate", "summarize", "classify", "extract", "draft"] } }
+  ```
+
+  A first live test on 27 November 2026: one translation, one summary, one classification, one extraction to JSON and one short draft on `qwen/qwen3.8-27b`, all correct, $0.0003 in total, about a second each. `node scripts/config.mjs` shows the settings in force.
 - **Plan usage in token-diet's monitor**: an optional status line, see [token-diet](https://github.com/fracabu/token-diet#optional-plan-usage-in-the-monitor).
 
 ## Usage

@@ -18,7 +18,10 @@ export const KAGGLE_DIR = process.env.KAGGLE_OFFLOAD_HOME ? resolve(process.env.
 // goes to Kaggle instead (GPU for model work, CPU-only sessions for the rest). Change it in
 // <data dir>/config.json, e.g. {"cpuMaxPercent": 60, "cpuMaxMinutes": 10}.
 export const CONFIG_FILE = join(DATA_DIR, 'config.json');
-export const CONFIG_DEFAULTS = { cpuMaxPercent: 50, cpuMaxMinutes: 5 };
+// "direct": task kinds that go straight to one OpenRouter model, with no pilot against Claude, e.g.
+//   "direct": { "model": "qwen/qwen3.8-27b", "tasks": ["translate", "summarize", "classify", "extract", "draft"] }
+// Off by default: null.
+export const CONFIG_DEFAULTS = { cpuMaxPercent: 50, cpuMaxMinutes: 5, direct: null };
 export function readConfig() {
   try { return { ...CONFIG_DEFAULTS, ...JSON.parse(readFileSync(CONFIG_FILE, 'utf8')) }; } catch { return { ...CONFIG_DEFAULTS }; }
 }

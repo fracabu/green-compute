@@ -69,7 +69,24 @@ The limits are the user's: `~/.green-compute/config.json`, e.g. `{"cpuMaxPercent
 Times are rough (GPU ones most of all): trust the verdict when the gap is large, and say "about".
 While a job runs, the control room also flags the PC when the CPU stays above the limit for a minute.
 
-### 4. Is it bulk text work with clear rules?
+### 4. Is it one of the user's direct tasks?
+
+Read the settings first: `GC/config.mjs`. When `direct` is set and the job is one of its `tasks`
+(`translate`, `summarize`, `classify`, `extract`, `draft`), it goes **straight to `direct.model`** on
+OpenRouter, with no pilot against Claude: the user has already decided. Step 1 still holds (no personal
+or confidential data), and so does the cost check: say the estimate in one line if it's over a dollar.
+
+1. Write `jobs.jsonl` (one `{"id", "prompt"}` per item) and the instruction as `--system`.
+2. Run the first 3 items, read them, fix the instruction if needed:
+   `GC/or-batch.mjs --model <direct.model> --in jobs.jsonl --out results.jsonl --system "<rules>" --reasoning none`
+   (`--reasoning low` for summaries and drafts if `none` reads flat). Then run the same command on the
+   whole file: it resumes and does the rest.
+3. Drafts (`draft`) are first versions: Claude rereads and fixes them before they go anywhere.
+   Extractions: check that every line is valid JSON with the expected fields.
+
+A job that is none of those tasks, or is mixed, goes on to step 5.
+
+### 5. Is it bulk text work with clear rules?
 
 Many items, the same instruction, a template or examples to follow → candidate for an **open model on
 OpenRouter**, called from a script so the Claude session stays where it is:
@@ -85,7 +102,7 @@ OpenRouter**, called from a script so the Claude session stays where it is:
    (an empty answer is recorded as an error and retried on the next run).
 4. **Verify a sample on Claude** (more when errors cost more), as token-diet would for a production phase.
 
-### 5. Is the plan running out?
+### 6. Is the plan running out?
 
 When the weekly limit is near and the remaining work is not sensitive, the whole conversation can move
 to an open model with `/or` (Windows; it opens a new window on the same session) and come back with
@@ -93,7 +110,7 @@ to an open model with `/or` (Windows; it opens a new window on the same session)
 to Claude for verification. Without the mod, the user can start Claude Code on OpenRouter by hand
 (`ANTHROPIC_BASE_URL=https://openrouter.ai/api`, the key as `ANTHROPIC_AUTH_TOKEN`).
 
-### 6. Everything else
+### 7. Everything else
 
 Stays on Claude, and **token-diet** decides model and effort phase by phase.
 
